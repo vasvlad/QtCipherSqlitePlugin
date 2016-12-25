@@ -37,83 +37,46 @@
 **
 ****************************************************************************/
 
-#ifndef QSQLCACHEDRESULT_P_H
-#define QSQLCACHEDRESULT_P_H
+#ifndef QSQLDRIVER_P_H
+#define QSQLDRIVER_P_H
 
 //
 //  W A R N I N G
 //  -------------
 //
-// This file is not part of the Qt API.  It exists for the convenience
-// of other Qt classes.  This header file may change from version to
-// version without notice, or even be removed.
+// This file is not part of the Qt API. It exists for the convenience
+// of the QtSQL module. This header file may change from version to version
+// without notice, or even be removed.
 //
 // We mean it.
 //
 
-#include "QtSql/qsqlresult.h"
-#include "qsqlresult_p.h"
+#include "qobject_p.h"
+#include "qsqldriver.h"
+#include "qsqlerror.h"
 
 QT_BEGIN_NAMESPACE
 
-class QVariant;
-template <typename T> class QVector;
-
-class QSqlCachedResultPrivate;
-
-class Q_SQL_EXPORT QSqlCachedResult: public QSqlResult
+class QSqlDriverPrivate : public QObjectPrivate
 {
-    Q_DECLARE_PRIVATE(QSqlCachedResult)
+    Q_DECLARE_PUBLIC(QSqlDriver)
 
 public:
-    typedef QVector<QVariant> ValueCache;
+    QSqlDriverPrivate()
+      : QObjectPrivate(),
+        isOpen(false),
+        isOpenError(false),
+        precisionPolicy(QSql::LowPrecisionDouble),
+        dbmsType(QSqlDriver::UnknownDbms)
+    { }
 
-protected:
-    QSqlCachedResult(QSqlCachedResultPrivate &d);
-
-    void init(int colCount);
-    void cleanup();
-    void clearValues();
-
-    virtual bool gotoNext(ValueCache &values, int index) = 0;
-
-    QVariant data(int i) Q_DECL_OVERRIDE;
-    bool isNull(int i) Q_DECL_OVERRIDE;
-    bool fetch(int i) Q_DECL_OVERRIDE;
-    bool fetchNext() Q_DECL_OVERRIDE;
-    bool fetchPrevious() Q_DECL_OVERRIDE;
-    bool fetchFirst() Q_DECL_OVERRIDE;
-    bool fetchLast() Q_DECL_OVERRIDE;
-
-    int colCount() const;
-    ValueCache &cache();
-
-    void virtual_hook(int id, void *data) Q_DECL_OVERRIDE;
-    void detachFromResultSet() Q_DECL_OVERRIDE;
-    void setNumericalPrecisionPolicy(QSql::NumericalPrecisionPolicy policy) Q_DECL_OVERRIDE;
-private:
-    bool cacheNext();
-};
-
-class Q_SQL_EXPORT QSqlCachedResultPrivate: public QSqlResultPrivate
-{
-    Q_DECLARE_PUBLIC(QSqlCachedResult)
-
-public:
-    QSqlCachedResultPrivate(QSqlCachedResult *q, const QSqlDriver *drv);
-    bool canSeek(int i) const;
-    inline int cacheCount() const;
-    void init(int count, bool fo);
-    void cleanup();
-    int nextIndex();
-    void revertLast();
-
-    QSqlCachedResult::ValueCache cache;
-    int rowCacheEnd;
-    int colCount;
-    bool atEnd;
+    uint isOpen;
+    uint isOpenError;
+    QSqlError error;
+    QSql::NumericalPrecisionPolicy precisionPolicy;
+    QSqlDriver::DbmsType dbmsType;
 };
 
 QT_END_NAMESPACE
 
-#endif // QSQLCACHEDRESULT_P_H
+#endif // QSQLDRIVER_P_H

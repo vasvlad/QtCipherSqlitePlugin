@@ -39,6 +39,11 @@
 
 #include "qsqlcachedresult_p.h"
 
+#include <qvariant.h>
+#include <qdatetime.h>
+#include <qvector.h>
+#include "qsqldriver_p.h"
+
 QT_BEGIN_NAMESPACE
 
 /*
@@ -55,33 +60,17 @@ QT_BEGIN_NAMESPACE
 
 static const uint initial_cache_size = 128;
 
-class QSqlCachedResultPrivate
-{
-public:
-    QSqlCachedResultPrivate();
-    bool canSeek(int i) const;
-    inline int cacheCount() const;
-    void init(int count, bool fo);
-    void cleanup();
-    int nextIndex();
-    void revertLast();
-
-    QSqlCachedResult::ValueCache cache;
-    int rowCacheEnd;
-    int colCount;
-    bool forwardOnly;
-    bool atEnd;
-};
-
-QSqlCachedResultPrivate::QSqlCachedResultPrivate():
-    rowCacheEnd(0), colCount(0), forwardOnly(false), atEnd(false)
+QSqlCachedResultPrivate::QSqlCachedResultPrivate(QSqlCachedResult *q, const QSqlDriver *drv)
+    : QSqlResultPrivate(q, drv),
+      rowCacheEnd(0),
+      colCount(0),
+      atEnd(false)
 {
 }
 
 void QSqlCachedResultPrivate::cleanup()
 {
     cache.clear();
-    forwardOnly = false;
     atEnd = false;
     colCount = 0;
     rowCacheEnd = 0;
@@ -136,23 +125,20 @@ inline int QSqlCachedResultPrivate::cacheCount() const
 
 //////////////
 
-QSqlCachedResult::QSqlCachedResult(const QSqlDriver * db): QSqlResult (db)
+QSqlCachedResult::QSqlCachedResult(QSqlCachedResultPrivate &d)
+    : QSqlResult(d)
 {
-    d = new QSqlCachedResultPrivate();
-}
-
-QSqlCachedResult::~QSqlCachedResult()
-{
-    delete d;
 }
 
 void QSqlCachedResult::init(int colCount)
 {
+    Q_D(QSqlCachedResult);
     d->init(colCount, isForwardOnly());
 }
 
 bool QSqlCachedResult::fetch(int i)
 {
+    Q_D(QSqlCachedResult);
     if ((!isActive()) || (i < 0))
         return false;
     if (at() == i)
@@ -191,6 +177,7 @@ bool QSqlCachedResult::fetch(int i)
 
 bool QSqlCachedResult::fetchNext()
 {
+    Q_D(QSqlCachedResult);
     if (d->canSeek(at() + 1)) {
         setAt(at() + 1);
         return true;
@@ -205,6 +192,7 @@ bool QSqlCachedResult::fetchPrevious()
 
 bool QSqlCachedResult::fetchFirst()
 {
+    Q_D(QSqlCachedResult);
     if (d->forwardOnly && at() != QSql::BeforeFirstRow) {
         return false;
     }
@@ -217,6 +205,7 @@ bool QSqlCachedResult::fetchFirst()
 
 bool QSqlCachedResult::fetchLast()
 {
+    Q_D(QSqlCachedResult);
     if (d->atEnd) {
         if (d->forwardOnly)
             return false;
@@ -237,6 +226,7 @@ bool QSqlCachedResult::fetchLast()
 
 QVariant QSqlCachedResult::data(int i)
 {
+    Q_D(const QSqlCachedResult);
     int idx = d->forwardOnly ? i : at() * d->colCount + i;
     if (i >= d->colCount || i < 0 || at() < 0 || idx >= d->rowCacheEnd)
         return QVariant();
@@ -246,6 +236,7 @@ QVariant QSqlCachedResult::data(int i)
 
 bool QSqlCachedResult::isNull(int i)
 {
+    Q_D(const QSqlCachedResult);
     int idx = d->forwardOnly ? i : at() * d->colCount + i;
     if (i >= d->colCount || i < 0 || at() < 0 || idx >= d->rowCacheEnd)
         return true;
@@ -255,6 +246,7 @@ bool QSqlCachedResult::isNull(int i)
 
 void QSqlCachedResult::cleanup()
 {
+    Q_D(QSqlCachedResult);
     setAt(QSql::BeforeFirstRow);
     setActive(false);
     d->cleanup();
@@ -262,6 +254,7 @@ void QSqlCachedResult::cleanup()
 
 void QSqlCachedResult::clearValues()
 {
+    Q_D(QSqlCachedResult);
     setAt(QSql::BeforeFirstRow);
     d->rowCacheEnd = 0;
     d->atEnd = false;
@@ -269,11 +262,11 @@ void QSqlCachedResult::clearValues()
 
 bool QSqlCachedResult::cacheNext()
 {
+    Q_D(QSqlCachedResult);
     if (d->atEnd)
         return false;
 
     if(isForwardOnly()) {
-        d->cache.clear();
         d->cache.resize(d->colCount);
     }
 
@@ -288,11 +281,13 @@ bool QSqlCachedResult::cacheNext()
 
 int QSqlCachedResult::colCount() const
 {
+    Q_D(const QSqlCachedResult);
     return d->colCount;
 }
 
 QSqlCachedResult::ValueCache &QSqlCachedResult::cache()
 {
+    Q_D(QSqlCachedResult);
     return d->cache;
 }
 
@@ -311,5 +306,6 @@ void QSqlCachedResult::setNumericalPrecisionPolicy(QSql::NumericalPrecisionPolic
     QSqlResult::setNumericalPrecisionPolicy(policy);
     cleanup();
 }
+
 
 QT_END_NAMESPACE
